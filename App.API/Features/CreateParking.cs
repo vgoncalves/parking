@@ -1,45 +1,32 @@
-﻿
-
-namespace App.API.Features
+﻿namespace App.API.Features
 {
     public class CreateParking
     {
         public record Request : IRequest<CommandResult<Response>>
         {
-            public Request(string? name, AddressType? address)
-            {
-                Name=name;
-                Address=address;
-            }
+            public string? Name { get; init; }
 
-            public string? Name { get; set; }
-
-            public AddressType? Address { get; set; }
+            public AddressType Address { get; init; } = new();
 
             public record AddressType
             {
-                public AddressType(string? postalCode, string? state, string? city, string? street, string? number, string? complement)
-                {
-                    City=city;
-                    Street=street;
-                    PostalCode=postalCode;
-                    Number=number;
-                    State=state;
-                    Complement=complement;
-                }
+                public string? City { get; init; }
 
-                public string? City { get; set; }
+                public string? Street { get; init; }
 
-                public string? Street { get; set; }
+                public string? PostalCode { get; init; }
 
-                public string? PostalCode { get; set; }
+                public string? Number { get; init; }
 
-                public string? Number { get; set; }
+                public string? State { get; init; }
 
-                public string? State { get; set; }
-
-                public string? Complement { get; set; }
+                public string? Complement { get; init; }
             }
+        }
+
+        public record Response
+        {
+            public string Id { get; init; } = string.Empty;
         }
 
         public class Validator : AbstractValidator<Request>
@@ -47,7 +34,6 @@ namespace App.API.Features
             public Validator()
             {
                 RuleFor(x => x.Name).NotEmpty();
-
                 RuleFor(x => x.Address!.Number).NotEmpty();
                 RuleFor(x => x.Address!.City).NotEmpty();
                 RuleFor(x => x.Address!.PostalCode).NotEmpty();
@@ -57,16 +43,6 @@ namespace App.API.Features
             }
         }
 
-        public record Response
-        {
-            public Response(string id)
-            {
-                Id=id;
-            }
-
-            public string Id { get; set; }
-        }
-
         public class Handler : IRequestHandler<Request, CommandResult<Response>>
         {
             private readonly IValidator<Request> _validator;
@@ -74,18 +50,18 @@ namespace App.API.Features
 
             public Handler(IValidator<Request> validator, AppDbContext db)
             {
-                _validator=validator;
-                _db=db;
+                _validator = validator;
+                _db = db;
             }
 
             public async Task<CommandResult<Response>> Handle(Request request, CancellationToken cancellationToken)
             {
-                var validationResult = await _validator.ValidateAsync(request);
+                var validationResult = await _validator.ValidateAsync(request, cancellationToken);
 
                 if (!validationResult.IsValid)
-                    return CommandResult<Response>.Fail(validationResult.GetMessages());
+                    return CommandResult<Response>.InvalidRequest(validationResult.GetMessages());
 
-                var newParking = new Parking(request.Name!, new Address(
+                var parking = new Parking(request.Name, new Address(
                     request.Address!.City!,
                     request.Address!.Street!,
                     request.Address!.PostalCode!,
@@ -93,10 +69,10 @@ namespace App.API.Features
                     request.Address!.State!,
                     request.Address!.Complement!));
 
-                await _db.Parkings.AddAsync(newParking);
-                await _db.SaveChangesAsync();
+                await _db.AddAsync(parking);
+                await _db.SaveChangesAsync(cancellationToken);
 
-                return CommandResult<Response>.Success(new Response(newParking.Id));
+                return CommandResult<Response>.Success(new Response() { Id = parking.Id });
             }
         }
     }

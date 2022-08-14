@@ -1,17 +1,30 @@
-﻿namespace App.API.Features
+﻿namespace App.API.Features;
+
+public record CommandResult<T>
 {
-    public class CommandResult<T>
+    private CommandResult()
     {
-        private CommandResult() { }
-
-        public static CommandResult<T> Success(T payload) => new CommandResult<T>() { Payload = payload };
-
-        public static CommandResult<T> Fail(IEnumerable<string> errors) => new CommandResult<T>() { Errors = errors };
-
-        public T? Payload { get; set; }
-
-        public bool IsSuccess => !Errors.Any();
-
-        public IEnumerable<string> Errors { get; set; } = Enumerable.Empty<string>();
     }
+
+    public static CommandResult<T> Success(T? payload)
+    {
+        return new CommandResult<T>() { Payload = payload };
+    }
+
+    public static CommandResult<T> InvalidRequest(params string[] errors)
+    {
+        return new CommandResult<T>() { Errors = errors, FailureReason = FailureReason.InvalidRequest};
+    }
+    public T? Payload { get; init; }
+
+    public IEnumerable<string> Errors { get; set; } = Enumerable.Empty<string>();
+
+    public FailureReason FailureReason { get; init; } = FailureReason.None;
+}
+
+public enum FailureReason
+{
+    None = 0,
+    InvalidRequest,
+    EntityNotFound,
 }
